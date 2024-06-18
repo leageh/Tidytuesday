@@ -35,43 +35,39 @@ grouped_table <- df %>%
 
 # Create the plot
 plot <- ggplot(grouped_table, aes(x = PP, y = average_rating, fill = community_type)) +
-  geom_col(position = position_dodge(width = 0.8), width = 0.4, color = "#E1E6E1") +
+  geom_col(position = position_dodge(width = 0.7), width = 0.5, color = "#E1E6E1") +  # Adjust dodge width for bars
   geom_text(aes(label = round(average_rating, 1)), 
-            position = position_dodge(width = 0.8), 
+            position = position_dodge(width = 0.7),  # Match dodge width
             vjust = -0.5, 
-            size = 6, 
-            color = "#E1E6E1") +
+            size = 8,
+            family = "oswald",
+            color = "#E1E6E1") +  # Label the bars
   labs(
-    x = "School Type",
-    y = "Average Rating",
-    title = "Campus Pride Index: Public schools rank higher than private school",
-    subtitle = "Comparison of Community Types",
-    fill = "Community Type"
+    x = "School Type",  # Label for x-axis
+    y = "Average Rating",  # Label for y-axis
+    title = "Campus Pride Index: Public schools rank higher than private schools",  # Plot title
+    fill = "Community Type",  # Legend title for fill (optional)
+    caption = "Source: https://campusprideindex.org; Author: @irgendeine_lea; #TidyTuesday 2024: W24"
   ) +
-  scale_y_continuous(limits = c(0, 5)) +
-  theme_minimal() +
+  scale_y_continuous(limits = c(0, 5)) +  # Set y-axis limits
+  theme_minimal() +  # Change theme to minimal for grey background
   theme(
-    plot.background = element_rect(fill = "#3D3D3D", color = NA),
-    plot.margin = margin(5, 5, 5, 5),
-    axis.text = element_text(family = "sans", color = "#E1E6E1", size = 16, margin = margin(10)),
-    axis.title = element_text(family = "oswald", color = "#E1E6E1", size = 18),
-    panel.grid.minor = element_line(color = "#555555"),
-    panel.grid.major = element_line(color = "#555555"),
-    plot.title = element_text(family = "oswald", size = 28, face = "bold", color = "#E1E6E1"),
-    plot.subtitle = element_text(family = "oswald", size = 22, color = "#E1E6E1"),
-    legend.text = element_text(family = "sans", color = "#E1E6E1", size = 14),
-    legend.title = element_text(family = "oswald", color = "#E1E6E1", size = 16),
-    legend.position = "bottom",
-    legend.key.width = unit(0.4, "cm"),
-    legend.key.height = unit(0.4, "cm"),
-    plot.caption = element_text(family = "sans", color = "#E1E6E1", size = 12)
+    plot.background = element_rect(fill = "#3D3D3D"),  # Set plot background to grey
+    axis.text = element_text(family = "oswald", color = "#E1E6E1", size = 25),  # Set axis text color and font
+    axis.title = element_text(family = "oswald", color = "#E1E6E1", size = 35),  # Set axis titles color and font
+    panel.grid.minor = element_line(color = "#555555"),  # Set minor grid lines color
+    panel.grid.major = element_line(color = "#555555"),  # Set major grid lines color
+    plot.title = element_text(family = "oswald", size = 40, face = "bold", color = "#E1E6E1"),  # Title font settings
+    legend.text = element_text(family = "oswald", color = "#E1E6E1", size = 25),  # Set legend text color and font
+    legend.title = element_text(family = "oswald", color = "#E1E6E1", size = 25),
+    legend.position = "bottom",  # Set legend position
+    legend.key.width = unit(0.6, "cm"),  # Set width of legend symbols
+    legend.key.height = unit(0.1, "cm"),  # Set height of legend symbols
+    plot.caption = element_text(family = "oswald", color = "#E1E6E1", size = 18)  # Adjust caption font, color, and size
   ) +
-  scale_fill_manual(values = palette_lgbtq("rainbow")) +
-  labs(
-    caption = "Source: https://campusprideindex.org\nAuthor: @irgendeine_lea\n#TidyTuesday 2024: W24"
-  )
-
+  scale_fill_manual(values = palette_lgbtq("rainbow")) 
+    
 plot
 
 # Save the plot as a PNG file with dimensions in cm
-ggsave(filename = "campus_pride_index_plot.png", plot = plot, width = 25, height = 15, units = "cm", dpi = 200)
+ggsave(filename = "campus_pride_index_plot.png", plot = plot, width = 25, height = 15, units = "cm", dpi = 300)
