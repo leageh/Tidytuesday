@@ -1,72 +1,55 @@
+# Load necessary libraries
 library(tidyverse)
 library(ggplot2)
 library(dplyr)
 library(tidytuesdayR)
 library(stringr)
-library(ggforce)
-library(camcorder)
 library(ggrepel)
+library(ggforce)
 
-
-
-
+# Load data for TidyTuesday 2024, week 25
 tuesdata <- tidytuesdayR::tt_load(2024, 25)
-
 holidays <- tuesdata$federal_holidays
 
-  
-# Convert the custom date format to extract the month
+# Data preprocessing
 holidays <- holidays %>%
   mutate(
-    Month = str_extract(date, "[A-Za-z]+"),  # Extract the month as a string
-    Month = factor(Month, levels = month.name),  # Convert to factor and order by month names
-    Years_from_now = as.numeric(format(Sys.Date(), "%Y")) - year_established  # Calculate years from now
+    # Extract the month from the date string
+    Month = str_extract(date, "[A-Za-z]+"),
+    # Convert month names to factors ordered by month
+    Month = factor(Month, levels = month.name),
+    # Calculate years since the holiday was established
+    Years_from_now = as.numeric(format(Sys.Date(), "%Y")) - year_established,
+    # Shorten certain holiday names
+    official_name = case_when(
+      official_name == "Juneteenth National Independence Day" ~ "Juneteenth Nat. Ind. Day",
+      official_name == "Birthday of Martin Luther King, Jr." ~ "Bday Martin Luther King, Jr.",
+      TRUE ~ official_name
+    )
   )
 
-# Change "Juneteenth National Independence Day" to a shorter version
-holidays$official_name[holidays$official_name == "Juneteenth National Independence Day"] <- "Juneteenth Nat. Ind. Day"
-
-holidays$official_name[holidays$official_name == "Birthday of Martin Luther King, Jr."] <- "Bday Martin Luther King, Jr."
-
-
-
-
-
-
-# Create a complete set of months
+# Ensure all months are included in the data
 all_months <- data.frame(Month = factor(month.name, levels = month.name))
-
-# Merge holidays data with all months to ensure all months are included
 holidays <- merge(all_months, holidays, by = "Month", all.x = TRUE)
 
-  
-  # Assuming you have the necessary 'holidays' data frame loaded
-  
-  # Create the plot
-p <-  
-  library(ggrepel)  # Make sure ggrepel package is loaded for geom_label_repel
-
-ggplot(holidays, aes(x = Month, y = Years_from_now, color = official_name)) +
+# Create the plot
+p <- ggplot(holidays, aes(x = Month, y = Years_from_now, color = official_name)) +
   geom_segment(aes(xend = Month, yend = 0, color = official_name), size = 1) +
-  geom_point(aes(color = official_name), size = 3, alpha = 0.8) +
+  geom_point(aes(color = official_name), size = 4.3, alpha = 0.8, shape = 21, fill = "black", stroke = 1.2) +
   geom_label_repel(
     aes(label = official_name, color = official_name),
     size = 3, box.padding = 0.2,
     segment.size = 0.2, segment.color = "grey50",
     nudge_y = 0.05, direction = "both", max.overlaps = Inf,
-    fill = "black",  # Set background color
-    fontface = "italic",  # Optionally set font style
-    label.padding = 0.1  # Adjust padding around text
+    fill = "black", fontface = "italic", label.padding = 0.1
   ) +
   geom_text(
     aes(label = Years_from_now), 
-    color = "white", size = 2, 
-    fontface = "bold",  # Specify bold font outside aes()
-    nudge_x = 0.1, nudge_y = 0.1, hjust = 0, vjust = 0.5, check_overlap = FALSE
+    size = 2.5, color = "white", fontface = "bold", nudge_x = 0.1, nudge_y = 0.1
   ) +
   labs(
-    title = "US Federal Holidays by Year Established",
-    subtitle = "Not all federal holidays have existed for a similar duration. \nMemorial Day, established 156 years ago, is the oldest, \nwhile Juneteenth is the newest.",
+    title = "How long have our holidays been around for?",
+    subtitle = "Not all US federal holidays have existed for a similar duration. \nMemorial Day, established 156 years ago, is the oldest, \nwhile Juneteenth is the newest.",
     x = "",
     y = "Years since establishment of holiday",
     caption = "Source: https://en.wikipedia.org/wiki/Federal_holidays_in_the_United_States\nAuthor: @irgendeine_lea\n#TidyTuesday 2024: W25"
@@ -76,7 +59,7 @@ ggplot(holidays, aes(x = Month, y = Years_from_now, color = official_name)) +
   theme(
     plot.background = element_rect(fill = "black"),
     plot.title = element_text(hjust = 0.5, size = 20, face = "bold", color = "white"),
-    plot.subtitle = element_text(hjust = 0.5, size = 12, face = "italic", color = "grey50"),
+    plot.subtitle = element_text(hjust = 0.5, size = 12, face = "italic", color = "grey"),
     axis.text = element_text(color = "white", size = 12),
     axis.text.y = element_text(angle = 0, hjust = 0, vjust = 0, size = 12, face = "bold", color = "white"),
     axis.title.y = element_text(color = "white", size = 12, angle = 90, vjust = 5, hjust = 0.83),
@@ -88,12 +71,6 @@ ggplot(holidays, aes(x = Month, y = Years_from_now, color = official_name)) +
     plot.margin = unit(c(1, 1, 1, 1), "cm"),
     plot.caption = element_text(color = "white", size = 10, hjust = 1, margin = margin(t = 10, r = 10))
   )
-  
-  ggsave("federalholidays.png", plot = p, 
-         width = 20, height = 23, units = 'cm', dpi = 300)
-  
-  
-  
-  
- 
-  
+
+# Save the plot to a file
+ggsave("federalholidays.png", plot = p, width = 20, height = 23, units = 'cm', dpi = 300)
