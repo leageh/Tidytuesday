@@ -1,0 +1,75 @@
+# Load necessary libraries
+library(tidyverse)
+library(tidytuesdayR)
+
+# Set the plot theme
+theme_set(theme_light())
+
+# Load the weekly TidyTuesday dataset for 2024-09-17
+tt <- tt_load("2024-09-17")
+
+# Extract and combine individual datasets, adding a story column
+stories <- bind_rows(
+  tt$hamlet %>% mutate(story = "Hamlet"),
+  tt$macbeth %>% mutate(story = "Macbeth"),
+  tt$romeo_juliet %>% mutate(story = "Romeo and Juliet")
+)
+
+# Count the number of dialogues by story
+n_dialogue_by_story <- stories %>%
+  summarize(n_dialogue = sum(!is.na(line_number)), .by = story)
+
+# Define the desired order of the stories
+stories_order <- c("Macbeth", "Romeo and Juliet", "Hamlet")
+
+# Create the plot data
+plot_data <- stories %>%
+  filter(!is.na(line_number)) %>%
+  count(story, character) %>%
+  left_join(n_dialogue_by_story, by = "story") %>%
+  mutate(
+    story = factor(story, levels = stories_order),
+    character = fct_lump_n(character, n = 15, w = n) %>%
+                fct_reorder(n) %>%
+                fct_rev()
+  ) %>%
+  group_by(story, character) %>%
+  summarize(n = sum(n), .groups = "drop_last") %>%
+  mutate(
+    row = row_number(),
+    cum_count = cumsum(n),
+    y_position = (cum_count + lag(cum_count)) / 2
+  ) %>%
+  ungroup()
+
+# Create the plot
+p <- ggplot(plot_data, aes(x = story, y = n, fill = "white")) +
+  geom_col(position = position_stack(reverse = TRUE),
+           show.legend = FALSE,
+           color = "darkred",
+           width = 0.3) +
+  geom_text(aes(y = y_position, label = paste(character, "\n", n)),
+            angle = 0,
+            vjust = 0.5,
+            hjust = 0.5,
+            color = "white",
+            size = 3) +
+  scale_y_continuous(expand = expansion()) +
+  labs(x = NULL, y = "Number of Dialogues",
+       title = "Shakespeare's Chatty Characters: Who Talks the Most?",
+       caption = "Source: The Complete Works of William Shakespeare\nAuthor: @irgendeine_lea\n#TidyTuesday 2024: W38") +
+  coord_flip() +
+  theme(
+    panel.background = element_rect(fill = "black"),
+    plot.background = element_rect(fill = "black"),
+    plot.title = element_text(color = "white", face = "bold"),
+    plot.caption = element_text(color = "white"),
+    axis.text = element_text(color = "white"),
+    axis.title = element_text(color = "white")
+  )
+
+# Display the plot
+print(p)
+
+# Save the plot as a PNG file
+ggsave("shakespeare_dialogue_horizontal1.png", p, width = 13, height = 6)
