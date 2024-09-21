@@ -1,0 +1,75 @@
+# Load necessary packages
+library(tidyverse)   # Core tidyverse packages (dplyr, ggplot2, etc.)
+library(ggtext)      # Improved text rendering for ggplot2
+library(showtext)    # Font management in plots
+library(janitor)     # Data cleaning functions
+library(skimr)       # Data summary
+library(scales)      # Scales for ggplot
+library(lubridate)   # Date handling
+library(ggrepel)     # Smart label placement
+
+# Load Google font (e.g., 'Roboto')
+font_add_google("Roboto", "roboto")
+showtext_auto()
+
+# Set figure size and resolution in cm using the specified directory
+camcorder::gg_record(
+  dir    = #yourdirectory
+  device = 'png',
+  width  = 22,   # Width in cm
+  height = 26,   # Height in cm
+  units  = 'cm'
+)
+
+# Set text rendering options for showtext
+showtext_opts(dpi = 320, regular.wt = 300, bold.wt = 800)
+
+# Read in the data for Tidytuesday 2024, week 32
+tt <- tidytuesdayR::tt_load(2024, week = 32)
+
+# Clean the data
+olympics <- tt$olympics %>% clean_names()
+
+# Count medals by year, sex, and season, then calculate percentage
+medal_counts <- olympics %>%
+  filter(!is.na(year)) %>%  # Remove rows without a year
+  group_by(year, sex, season) %>%
+  summarise(medal_count = n(), .groups = 'drop') %>%
+  complete(year, sex, season, fill = list(medal_count = 0)) %>%
+  group_by(year, season) %>%
+  mutate(total_medals = sum(medal_count),
+         percentage = (medal_count / total_medals) * 100) %>%
+  select(year, sex, season, percentage) %>%
+  ungroup() %>%
+  filter(percentage > 0)  # Exclude rows with 0 percentage
+
+# Convert year to an ordered factor for proper plotting
+medal_counts <- medal_counts %>%
+  mutate(year = factor(year, levels = sort(unique(year))), # Ensure correct ordering
+         season = as.factor(season))  # Ensure season is a factor
+
+# Define colors for men and women
+gender_colors <- c("M" = "#1f78b4", "F" = "#e31a1c")  # Dark blue for men, red for women
+
+# Plot the percentage of medals with smart label placement
+ggplot(medal_counts, aes(x = percentage, y = year, color = sex)) +
+  geom_point(aes(shape = season), size = 3, stroke = 1) +  # Adjusted point size and stroke
+  geom_text_repel(aes(label = round(percentage, 1)), 
+                  size = 3, 
+                  nudge_x = 0.5,  # Adjust distance from dots
+                  nudge_y = 0.2) +  # Adjust vertical nudge for clarity
+  labs(title = "Percentage of Medals Over the Years: Men vs. Women",
+       subtitle = "Analyzing trends in Olympic medal distributions by gender and season",
+       y = "Year",
+       x = "Percentage of Medals") +
+  scale_color_manual(values = c(gender_colors["M"], gender_colors["F"])) +  # Colors for men and women
+  scale_shape_manual(values = c("Summer" = 16, "Winter" = 8)) +  # 16 = round, 8 = snowflake
+  theme_minimal(base_family = "roboto") +  # Use Google font
+  theme(legend.title = element_blank(),
+        legend.position = "top",  # Position the legend at the top
+        axis.title.x = element_text(size = 14),
+        axis.title.y = element_text(size = 14),
+        axis.text.x = element_text(size = 12),
+        axis.text.y = element_text(size = 12),
+        plot.title = element_text(size = 18, face = "bold", hjust = 0.5, family = "roboto"),
+        plot.subtitle = element_text(size = 14, hjust = 0.5, family = "roboto", face = "italic"))  # Center the subtitle
