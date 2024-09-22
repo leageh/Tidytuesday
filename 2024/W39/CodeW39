@@ -1,0 +1,287 @@
+# Load necessary packages
+library(tidyverse)   # Core tidyverse packages (dplyr, ggplot2, etc.)
+library(ggtext)      # Improved text rendering for ggplot2
+library(showtext)    # Font management in plots
+library(janitor)     # Data cleaning functions
+library(scales)      # Scales for ggplot
+library(ggrepel)     # Smart label placement
+library(patchwork)   # For combining plots
+
+# Load Google font (e.g., 'Roboto')
+font_add_google("Roboto", "roboto")
+showtext_auto()
+
+# Set figure size and resolution in cm using the specified directory
+camcorder::gg_record(
+  dir    = '/Users/leagehmacher/Library/CloudStorage/Dropbox/C R Studio/Tidytuesday',
+  device = 'png',
+  width  = 70,   # Width in cm
+  height = 40,   # Height in cm
+  units  = 'cm'
+)
+
+# Set text rendering options for showtext
+showtext_opts(dpi = 320, regular.wt = 300, bold.wt = 800)
+
+# Read in the data for Tidytuesday 2024, week 39
+tt <- tidytuesdayR::tt_load(2024, week = 39)
+
+# Clean the data
+mathe <- tt$timeline_df %>% clean_names()
+
+# Remove the raw data object
+rm(tt)
+
+# Create a new column for the female ratio
+mathe <- mathe %>%
+  mutate(female_ratio = female_contestant / all_contestant)
+
+# Classify trends into categories, including "Only one year"
+mathe <- mathe %>%
+  group_by(country) %>%
+  arrange(year) %>%
+  mutate(
+    trend_category = case_when(
+      n() == 1 ~ "Only one year",                                                 # Only one year of data
+      last(female_ratio) < first(female_ratio) ~ "Now smaller than at the start",  # Current < first
+      last(female_ratio) == min(female_ratio) ~ "Currently at lowest point",       # Current is the smallest
+      all(diff(female_ratio) >= 0) ~ "Consistently increasing",                    # Never decreases
+      all(diff(female_ratio) <= 0) ~ "Consistently decreasing",                    # Never increases
+      TRUE ~ "Variable trend"                                                       # Mixed trend
+    )
+  )
+
+# Define a vector of countries that no longer exist
+non_existent_countries <- c("Union of Soviet Socialist Republics", 
+                            "German Democratic Republic", 
+                            "Czechoslovakia")
+
+# Update the data frame to include the new category for non-existent countries
+mathe <- mathe %>%
+  mutate(trend_category = ifelse(country %in% non_existent_countries, 
+                                 "Non-existent country", 
+                                 trend_category))
+
+# Create the ggplot with a clear distinction for "Only one year" (plot1)
+plot1 <- ggplot(mathe, aes(x = year, y = female_ratio, group = country)) +
+  geom_line(data = mathe %>% filter(trend_category != "Only one year"),
+            aes(color = trend_category), size = 1.2) +
+  geom_point(data = mathe %>% filter(trend_category != "Only one year"),
+             size = 4, aes(color = trend_category)) +
+  geom_line(data = mathe %>% filter(trend_category == "Only one year"),
+            aes(color = trend_category), size = 1.2, linetype = "solid") +
+  geom_point(data = mathe %>% filter(trend_category == "Only one year"),
+             size = 5, aes(color = trend_category)) +
+  geom_text_repel(
+    data = mathe %>% group_by(country) %>% filter(year == max(year)),
+    aes(label = country, color = trend_category),
+    size = 3,
+    nudge_x = 0.5,
+    hjust = 0
+  ) +
+  geom_text(aes(label = scales::percent(female_ratio, accuracy = 1)),
+            size = 1.7,
+            color = "darkgrey",
+            hjust = 0.5,
+            vjust = 0.5,
+            show.legend = FALSE) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  scale_x_continuous(breaks = seq(min(mathe$year), max(mathe$year), by = 5)) +
+  scale_color_manual(
+    values = c(
+      "Currently at lowest point" = "#e9efea",
+      "Consistently increasing" = "#e9efea",
+      "Consistently decreasing" = "#e9efea",
+      "Variable trend" = "#e9efea",
+      "Only one year" = "orange",
+      "Now smaller than at the start" = "#e9efea",
+      "Non-existent country" = "#e9efea"
+    ),
+    name = "Trend Category"
+  ) +
+  labs(
+    x = "Year",
+    y = "Female Contestant Ratio"
+  ) +
+  theme_minimal(base_family = "roboto") +
+  theme(
+    text = element_text(size = 14),
+    plot.title = element_text(face = "bold", size = 18),
+    plot.subtitle = element_text(size = 14),
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    axis.text.x = element_text(angle = 45),
+    strip.text = element_text(face = "bold", size = 12)
+  )
+
+# Create the ggplot with a clear distinction for "Now smaller than at the start" (plot2)
+plot2 <- ggplot(mathe, aes(x = year, y = female_ratio, group = country)) +
+  geom_line(data = mathe %>% filter(trend_category != "Now smaller than at the start"),
+            aes(color = trend_category), size = 1.2) +
+  geom_point(data = mathe %>% filter(trend_category != "Now smaller than at the start"),
+             size = 4, aes(color = trend_category)) +
+  geom_line(data = mathe %>% filter(trend_category == "Now smaller than at the start"),
+            aes(color = trend_category), size = 1.2, linetype = "solid") +
+  geom_point(data = mathe %>% filter(trend_category == "Now smaller than at the start"),
+             size = 5, aes(color = trend_category)) +
+  geom_text_repel(
+    data = mathe %>% group_by(country) %>% filter(year == max(year)),
+    aes(label = country, color = trend_category),
+    size = 3,
+    nudge_x = 0.5,
+    hjust = 0
+  ) +
+  geom_text(aes(label = scales::percent(female_ratio, accuracy = 1)),
+            size = 1.7,
+            color = "darkgrey",
+            hjust = 0.5,
+            vjust = 0.5,
+            show.legend = FALSE) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  scale_x_continuous(breaks = seq(min(mathe$year), max(mathe$year), by = 5)) +
+  scale_color_manual(
+    values = c(
+      "Now smaller than at the start" = "red",
+      "Currently at lowest point" = "#e9efea",
+      "Consistently increasing" = "#e9efea",
+      "Consistently decreasing" = "#e9efea",
+      "Variable trend" = "#e9efea",
+      "Only one year" = "#e9efea",
+      "Non-existent country" = "#e9efea"
+    ),
+    name = "Trend Category"
+  ) +
+  labs(
+    x = "Year",
+    y = "Female Contestant Ratio"
+  ) +
+  theme_minimal(base_family = "roboto") +
+  theme(
+    text = element_text(size = 14),
+    plot.title = element_text(face = "bold", size = 18),
+    plot.subtitle = element_text(size = 14),
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    axis.text.x = element_text(angle = 45),
+    strip.text = element_text(face = "bold", size = 12)
+  )
+
+# Create the ggplot for "Consistently increasing" (plot3)
+plot3 <- ggplot(mathe, aes(x = year, y = female_ratio, group = country)) +
+  geom_line(data = mathe %>% filter(trend_category != "Consistently increasing"),
+            aes(color = trend_category), size = 1.2) +
+  geom_point(data = mathe %>% filter(trend_category != "Consistently increasing"),
+             size = 4, aes(color = trend_category)) +
+  geom_line(data = mathe %>% filter(trend_category == "Consistently increasing"),
+            aes(color = trend_category), size = 1.2, linetype = "solid") +
+  geom_point(data = mathe %>% filter(trend_category == "Consistently increasing"),
+             size = 5, aes(color = trend_category)) +
+  geom_text_repel(
+    data = mathe %>% group_by(country) %>% filter(year == max(year)),
+    aes(label = country, color = trend_category),
+    size = 3,
+    nudge_x = 0.5,
+    hjust = 0
+  ) +
+  geom_text(aes(label = scales::percent(female_ratio, accuracy = 1)),
+            size = 1.7,
+            color = "darkgrey",
+            hjust = 0.5,
+            vjust = 0.5,
+            show.legend = FALSE) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  scale_x_continuous(breaks = seq(min(mathe$year), max(mathe$year), by = 5)) +
+  scale_color_manual(
+    values = c(
+      "Currently at lowest point" = "#e9efea",
+      "Consistently increasing" = "green",
+      "Consistently decreasing" = "#e9efea",
+      "Variable trend" = "#e9efea",
+      "Only one year" = "#e9efea",
+      "Now smaller than at the start" = "#e9efea",
+      "Non-existent country" = "#e9efea"
+    ),
+    name = "Trend Category"
+  ) +
+  labs(
+    x = "Year",
+    y = "Female Contestant Ratio"
+  ) +
+  theme_minimal(base_family = "roboto") +
+  theme(
+    text = element_text(size = 14),
+    plot.title = element_text(face = "bold", size = 18),
+    plot.subtitle = element_text(size = 14),
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    axis.text.x = element_text(angle = 45),
+    strip.text = element_text(face = "bold", size = 12)
+  )
+
+# Create the ggplot for "Variable trend" (plot4)
+plot4 <- ggplot(mathe, aes(x = year, y = female_ratio, group = country)) +
+  geom_line(data = mathe %>% filter(trend_category != "Variable trend"),
+            aes(color = trend_category), size = 1.2) +
+  geom_point(data = mathe %>% filter(trend_category != "Variable trend"),
+             size = 4, aes(color = trend_category)) +
+  geom_line(data = mathe %>% filter(trend_category == "Variable trend"),
+            aes(color = trend_category), size = 1.2, linetype = "solid") +
+  geom_point(data = mathe %>% filter(trend_category == "Variable trend"),
+             size = 5, aes(color = trend_category)) +
+  geom_text_repel(
+    data = mathe %>% group_by(country) %>% filter(year == max(year)),
+    aes(label = country, color = trend_category),
+    size = 3,
+    nudge_x = 0.7,
+    hjust = 0
+  ) +
+  geom_text(aes(label = scales::percent(female_ratio, accuracy = 1)),
+            size = 1.7,
+            color = "darkgrey",
+            hjust = 0.5,
+            vjust = 0.5,
+            show.legend = FALSE) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  scale_x_continuous(breaks = seq(min(mathe$year), max(mathe$year), by = 5)) +
+  scale_color_manual(
+    values = c(
+      "Currently at lowest point" = "#e9efea",
+      "Consistently increasing" = "#e9efea",
+      "Consistently decreasing" = "#e9efea",
+      "Variable trend" = "blue",  # Blue for variable trend
+      "Only one year" = "#e9efea",
+      "Now smaller than at the start" = "#e9efea",
+      "Non-existent country" = "lightblue"
+    ),
+    name = "Trend Category"
+  ) +
+  labs(
+    x = "Year",
+    y = "Female Contestant Ratio"
+  ) +
+  theme_minimal(base_family = "roboto") +
+  theme(
+    text = element_text(size = 14),
+    plot.title = element_text(face = "bold", size = 18),
+    plot.subtitle = element_text(size = 14),
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    axis.text.x = element_text(angle = 45),
+    strip.text = element_text(face = "bold", size = 12)
+  )
+
+# Combine the plots vertically and add overall title and caption
+combined_plot <- (plot1 + plot2) / (plot3 + plot4) + 
+  plot_annotation(
+    title = "Female Representation at the International Mathematical Olympiad",
+    subtitle = "A Deep Dive into Gender Ratios Over the Years",
+    caption = "Source: Chess Game Dataset (Lichess)\nAuthor: @irgendeine_lea\n#TidyTuesday 2024: W39",
+    theme = theme(
+      plot.title = element_text(face = "bold", size = 30),
+      plot.subtitle = element_text(size = 24),
+      plot.caption = element_text(size = 12)
+    )
+  )
+
+# Print the combined plot
+combined_plot
