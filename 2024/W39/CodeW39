@@ -13,7 +13,7 @@ showtext_auto()
 
 # Set figure size and resolution in cm using the specified directory
 camcorder::gg_record(
-  dir    = '/Users/leagehmacher/Library/CloudStorage/Dropbox/C R Studio/Tidytuesday',
+  dir    = 'Your Directory',
   device = 'png',
   width  = 70,   # Width in cm
   height = 40,   # Height in cm
