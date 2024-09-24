@@ -1,0 +1,91 @@
+# Load necessary libraries
+library(tidytuesdayR)
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(viridis)
+library(pals)
+library(ggbump)
+
+# Set figure size and resolution
+camcorder::gg_record(
+  dir    = 'Your Directory',
+  device = 'png',
+  width  = 40,
+  height = 20,
+  units  = 'cm'
+)
+
+# Load chess dataset for week 40 of 2024
+tuesdata <- tt_load(2024, week = 40)
+chess_data <- tuesdata$chess
+
+# Define rating categories
+chess_data <- chess_data %>%
+  mutate(rating_category = case_when(
+    white_rating < 1200 ~ "< 1200",
+    white_rating >= 1200 & white_rating < 1400 ~ "1200-1399",
+    white_rating >= 1400 & white_rating < 1600 ~ "1400-1599",
+    white_rating >= 1600 & white_rating < 1800 ~ "1600-1799",
+    white_rating >= 1800 & white_rating < 2000 ~ "1800-1999",
+    TRUE ~ "2000+"
+  ))
+
+# Count top openings by rating category
+opening_favorites <- chess_data %>%
+  group_by(rating_category, opening_name) %>%
+  summarise(opening_count = n(), .groups = 'drop') %>%
+  arrange(rating_category, desc(opening_count)) %>%
+  group_by(rating_category) %>%
+  slice_head(n = 5)
+
+# Calculate total games and proportions
+total_games_by_category <- chess_data %>%
+  group_by(rating_category) %>%
+  summarise(total_games = n(), .groups = 'drop')
+
+opening_proportions <- opening_favorites %>%
+  left_join(total_games_by_category, by = "rating_category") %>%
+  mutate(proportion = opening_count / total_games)
+
+# Rank openings
+ranked_openings <- opening_proportions %>%
+  group_by(rating_category) %>%
+  mutate(rank = rank(-proportion)) %>%
+  ungroup()
+
+# Create bump chart
+color_palette_watlington <- pals::watlington(16)
+
+# Create bump chart
+ggplot(ranked_openings, aes(x = rating_category, y = rank, group = opening_name, color = opening_name)) +
+  geom_bump(size = 2, smooth = 8) +
+  geom_point(aes(y = ifelse(rating_category == "2000+" & rank > 1,
+                            ifelse(duplicated(opening_name) | duplicated(opening_name, fromLast = TRUE),
+                                   rank - 0.05, rank + 0.05),
+                            rank)),
+             size = 3.5, shape = 21, fill = "white", stroke = 3) +
+  scale_y_reverse(breaks = 1:10) +
+  labs(
+    title = "Ranking of Chess Openings by Player Rating",
+    subtitle = "Top 5 Openings Across Rating Categories with Overlaps in the 2000+ Group",
+    x = "Rating Category",
+    y = "Rank",
+    caption = "Source: Chess Game Dataset (Lichess)\nAuthor: @irgendeine_lea\n#TidyTuesday 2024: W40"
+  ) +
+  scale_color_manual(values = color_palette_watlington) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 18, hjust = 0.5, color = "gray20"),
+    plot.subtitle = element_text(size = 12, hjust = 0.5, color = "gray40"),
+    plot.caption = element_text(size = 10, hjust = 1, vjust = 0, color = "gray50"),  # Align caption to the right
+    axis.text.x = element_text(angle = 45, hjust = 1, color = "gray20"),
+    axis.text.y = element_text(color = "gray20"),
+    legend.position = "right",
+    legend.title = element_blank(),
+    legend.text = element_text(color = "gray20"),
+    panel.grid.major = element_line(color = "lightgray"),
+    panel.background = element_rect(fill = "#fefced"),
+    plot.background = element_rect(fill = "#fefced"),
+    plot.margin = margin(b = 20, r = 20, t = 20, l = 20)  # Adjust margins for better placement
+  )
