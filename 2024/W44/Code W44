@@ -1,0 +1,82 @@
+# Load Required Libraries
+library(tidytuesdayR)
+library(ggplot2)
+library(dplyr)
+library(lubridate)
+library(RColorBrewer)
+library(ggtext)
+library(showtext)
+library(janitor)
+
+# Set size for recording
+camcorder::gg_record(
+  dir = 'Your Directory',  # Update to your desired directory
+  device = 'png',
+  width = 40,   # Width in cm
+  height = 12,  # Height in cm
+  units = 'cm',
+  dpi = 320
+)
+
+# Set showtext options
+showtext_opts(dpi = 320, regular.wt = 300, bold.wt = 800)
+
+# Load the Tidy Tuesday dataset for the specified date
+tt <- tidytuesdayR::tt_load('2024-10-29')
+
+# Clean and prepare the data
+monster_movie_genres <- tt$monster_movie_genres %>% clean_names()
+monster_movies <- tt$monster_movies %>% clean_names()
+
+# Prepare data for the heatmap
+genre_year_counts <- monster_movies %>%
+  separate_rows(genres, sep = ",") %>%
+  group_by(year, genres) %>%
+  summarize(count = n(), .groups = "drop") %>%
+  filter(!is.na(genres))
+
+# Include all years and genres
+all_years <- expand.grid(year = unique(monster_movies$year), genres = unique(genre_year_counts$genres))
+
+# Join to fill missing years and genres
+genre_year_counts <- all_years %>%
+  left_join(genre_year_counts, by = c("year", "genres")) %>%
+  replace_na(list(count = 0))  # Replace NA with 0 for counts
+
+# Plot the heatmap
+ggplot(genre_year_counts, aes(x = year, y = genres, fill = count)) + 
+  geom_tile(color = "white", size = 0.1) +
+  scale_fill_gradientn(colors = c("white", "#660000", "#000000"), name = "Movie Count") + 
+  labs(
+    title = "Monster Movie Counts by Year and Genre",
+    x = "Year",
+    y = "Genre",
+    caption = "Source: IMDb non-commercial datasets\nAuthor: @irgendeine_lea\n#TidyTuesday 2024: W44"
+  ) + 
+  coord_fixed(ratio = 1) + 
+  theme_minimal(base_family = "Helvetica") +
+  theme(
+    plot.title = element_text(size = 30, face = "bold", color = "#990000", margin = margin(b = 20, l = 5), hjust = 0.5),
+    axis.title.x = element_text(size = 14, color = "#666666", face = "bold", margin = margin(t = 20)),
+    axis.title.y = element_text(size = 14, color = "#666666", face = "bold", hjust = 0.5, margin = margin(r = 10)),
+    axis.text.x = element_text(angle = 90, hjust = 1, size = 7, color = "#444444"),
+    axis.text.y = element_text(hjust = 0, vjust = 0.5, margin = margin(l = 5), size = 7, color = "#444444"),
+    panel.background = element_rect(fill = "#FAFAFA", color = NA),
+    plot.background = element_rect(fill = "#FAFAFA", color = NA),
+    panel.border = element_blank(),
+    panel.grid.major.y = element_line(color = "white", size = 0.5),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.y = element_line(color = "white", size = 0.5),
+    panel.grid.minor.x = element_blank(),
+    axis.ticks.y.right = element_blank(),
+    plot.margin = margin(t = 10, r = 30, b = 5, l = 30),
+    plot.caption = element_text(color = "#444444", size = 7, hjust = 1, face = "italic", margin = margin(t = 15)),
+    legend.position = "right",
+    legend.margin = margin(l = 20),
+    legend.title = element_text(size = 8),
+    legend.text = element_text(size = 6),
+    legend.key.size = unit(0.5, "cm"),
+    legend.background = element_rect(fill = "#FAFAFA", color = NA)
+  ) + 
+  scale_y_discrete(position = "right") + 
+  scale_x_discrete(limits = sort(unique(genre_year_counts$year)))  # Ensure all years are displayed
