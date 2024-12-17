@@ -1,0 +1,69 @@
+
+# Set size 
+camcorder::gg_record(
+  dir    = 'Your Directory',
+  device = 'png',
+  width  = 28,   # Width in cm
+  height = 15,   # Height in cm
+  units  = 'cm'
+)
+
+# Load necessary libraries
+library(tidytuesdayR)
+library(dplyr)
+library(ggplot2)
+library(viridis)
+library(showtext)
+library(tidyr)
+
+# Enable showtext and add Google Fonts
+showtext_auto()  # Automatically use showtext for rendering
+font_add_google("Roboto", "roboto")  # Adding Google font "Roboto"
+
+# Read the dataset and clean column names
+parfume_data_clean <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2024/2024-12-10/parfumo_data_clean.csv') %>%
+  janitor::clean_names()
+
+# Data Preparation
+accords_data <- parfume_data_clean %>%
+  separate_rows(main_accords, sep = ",") %>%  # Split the main accords into separate rows
+  filter(!is.na(main_accords)) %>%  # Exclude NAs
+  group_by(main_accords) %>%  # Group by main accords
+  summarize(Count = n()) %>%  # Count the occurrences of each accord
+  arrange(desc(Count)) %>%  # Sort in descending order by count
+  mutate(Percentage = (Count / sum(Count)) * 100) %>%  # Add percentage of total
+  slice_head(n = 20)  # Select the top 15 accords
+
+# Reorder the factor levels for proper sorting in the plot
+accords_data$main_accords <- factor(accords_data$main_accords, levels = accords_data$main_accords[order(accords_data$Count, decreasing = TRUE)])
+
+# Create the plot with a refined caption and reduced line spacing
+ggplot(accords_data, aes(x = Count, y = main_accords, fill = Count)) +
+  geom_col(show.legend = FALSE, width = 0.7) +  # Bar chart with wider bars
+  geom_text(aes(label = Count),  # Display the count value
+            hjust = 1.28, size = 10, color = "#444444", angle = 90, nudge_y = 0.2) +
+  geom_text(aes(label = paste0("(", round(Percentage, 1), "%)")),  # Display percentage
+            hjust = 1.2, size = 10, color = "#A9A9A9", angle = 90, nudge_y = -0.2) +
+  scale_fill_viridis(option = "C", direction = -1) +  # Lighter viridis palette (fragrance vibe)
+  theme_minimal(base_family = "roboto") +  # Clean theme with custom font
+  labs(
+    title = "We Like It Spicy: Top 20 Main Accords in Fragrances",  # Title and subtitle
+    subtitle = "A look at the most popular fragrance accords, with 'Spicy' leading the way",
+    x = "Count of Perfumes",  # New x-axis title
+    y = "Main Accord",  # y-axis title
+    caption = "* The percentage values are calculated in relation to all accords, not just the top 20.\nSource: Fragrance Dataset\nAuthor: @your_username\n#TidyTuesday W50 2024"
+  ) +
+  theme(
+    plot.title = element_text(face = "bold", size = 50, hjust = 0.5),
+    plot.subtitle = element_text(size = 40, hjust = 0.5, color = "gray50"),
+    axis.text.x = element_text(size = 30, angle = 90, face = "bold", color = "gray30"),
+    axis.text.y = element_text(size = 30, face = "bold", color = "gray30"),
+    axis.title.x = element_text(size = 40, color = "gray30", margin = margin(t = 10)),  # Add space above x-axis title
+    axis.title.y = element_text(size = 40, color = "gray30"),
+    panel.grid.major.x = element_blank(),  # Remove gridlines
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor = element_blank(),
+    plot.margin = margin(10, 10, 0, 10),
+    plot.caption = element_text(hjust = 1, size = 20, face = "italic", margin = margin(t = 20), lineheight = 0.3)  # Reduced space between caption lines
+  ) +
+  coord_flip()  # Flip coordinates for horizontal orientation
