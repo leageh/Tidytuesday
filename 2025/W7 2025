@@ -1,0 +1,94 @@
+# Load necessary libraries
+library(ggplot2)
+library(ggrepel)
+library(sf)
+library(dplyr)
+library(ggthemes)
+library(camcorder)
+library(maps)
+library(readr)
+
+# Read and clean the agencies dataset
+agencies <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2025/2025-02-18/agencies.csv') %>%
+  filter(!is.na(agency_type), !is.na(latitude), !is.na(longitude))
+
+# Convert agencies to an sf object
+agencies <- agencies %>%
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
+
+# Load US state boundaries and filter for Alabama
+states <- st_as_sf(maps::map("state", plot = FALSE, fill = TRUE))
+alabama <- states %>% filter(ID == "alabama")
+
+# Ensure Alabama and agencies have the same CRS
+alabama <- st_transform(alabama, crs = st_crs(agencies))
+
+# Filter agencies to ensure they are within Alabama boundaries
+agencies <- agencies[st_within(agencies, alabama, sparse = FALSE), ]
+
+# Get centroids for agencies to prepare for labeling
+agencies_centroids <- st_centroid(agencies)
+agencies_coords <- st_coordinates(agencies_centroids)
+agencies <- cbind(agencies, agencies_coords)
+
+# Custom color palette for distinct agency types
+custom_colors <- c(
+  "City" = "#8D8D8D",             # Muted gray for city agencies
+  "County" = "#32CD32",           # Green for county agencies
+  "University or College" = "#FFD700",  # Yellow for universities/colleges
+  "Tribal" = "#6F2DA8",           # Purple for tribal agencies
+  "Other State Agency" = "#1E90FF",  # Blue for other state agencies
+  "Other" = "brown"               # Brown for other agencies
+)
+
+# Set size for recording
+camcorder::gg_record(
+  dir = 'Your Directory',  # Update to your desired directory
+  device = 'png',
+  width = 31,              # Width in cm
+  height = 40,             # Height in cm
+  units = 'cm',
+  dpi = 320
+)
+
+# Plot the map
+p <- ggplot() +
+  # Background for Alabama
+  geom_sf(data = alabama, fill = "#1F1F1F", color = "black") +
+  
+  # Agencies with color based on type
+  geom_sf(data = agencies, aes(color = agency_type), size = 4) +
+  
+  # Apply custom color palette
+  scale_color_manual(values = custom_colors) +
+  
+  # Apply theme and styling
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 30, face = "bold", color = "white", hjust = 0.6, vjust = 2),  # Title styling
+    plot.subtitle = element_text(size = 15, color = "white", hjust = 0.6, vjust = 2),  # Subtitle styling
+    axis.title.x = element_blank(),  # Remove x-axis title
+    axis.title.y = element_blank(),  # Remove y-axis title
+    axis.text = element_text(size = 15, color = "white"),  # Axis text styling
+    axis.text.x = element_text(angle = 90),  # Rotate x-axis labels by 90 degrees
+    panel.grid = element_blank(),  # Remove grid lines
+    plot.background = element_rect(fill = "#262626", color = NA),  # Dark background for the plot
+    legend.position = "bottom",  # Legend at the bottom
+    legend.title = element_text(size = 20, face = "bold", color = "white"),  # Legend title styling
+    legend.text = element_text(size = 15, color = "white"),  # Legend text styling
+    legend.margin = margin(t = 20, b = 20),  # Add space above the legend
+    plot.margin = margin(t = 50, b = 50, l = 30, r = 30),  # Increase bottom margin for more space
+    panel.border = element_blank(),  # No border around the plot area
+    plot.caption = element_text(size = 12, color = "white", hjust = 0.5, vjust = -1)  # White caption text and adjusted position
+  ) +
+  
+  # Add titles and caption
+  labs(
+    title = "Law Enforcement in Alabama: A Map of Agency Types",  # Main title
+    subtitle = "Exploring the Distribution of City, County, and Other Law Enforcement Agencies Across the State",  # Subtitle
+    color = "Agency Type",  # Legend title
+    caption = "Source: FBI Crime Data API | @irgendeine_lea | #TidyTuesday 2025 W7"  # Caption with source and hashtags
+  )
+
+# Print the plot
+print(p)
