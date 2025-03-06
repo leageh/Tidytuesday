@@ -1,0 +1,270 @@
+# Load necessary libraries
+library(tidyverse)
+library(usmap)
+library(ggplot2)
+library(readr)
+library(maps)
+library(patchwork)
+library(camcorder)
+
+# Set size for recording
+camcorder::gg_record(
+  dir = 'your directory',  # Update to your desired directory
+  device = 'png',
+  width = 30,              # Width in cm
+  height = 20,             # Height in cm
+  units = 'cm',
+  dpi = 320
+)
+
+
+
+
+# Read the data (assuming you already have it loaded)
+article_dat <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2025/2025-02-25/article_dat.csv')
+
+# Mapping of incorrect state abbreviations to correct state abbreviations
+state_abbreviation_map <- c(
+  "AL AK" = "AL, AK", "ca" = "CA", "il" = "IL", "ny" = "NY", "mn" = "MN",
+  "ms" = "MS", "nm" = "NM", "tx" = "TX", "oh" = "OH", "ok" = "OK",
+  "or" = "OR", "pa" = "PA", "ri" = "RI", "ga" = "GA", "hi" = "HI",
+  "ma" = "MA", "md" = "MD", "me" = "ME", "mi" = "MI", "wa" = "WA",
+  "wi" = "WI", "wv" = "WV", "wy" = "WY", "dc" = "DC", "as" = "AS",
+  "pr" = "PR", "vi" = "VI", "ia. ks" = "IA, KS", "ia, ks" = "IA, KS", 
+  "il" = "IL", "mn ,ms" = "MN, MS", "ny" = "NY", "ak" = "AK", "ar" = "AR",
+  "co" = "CO", "de" = "DE", "ne" = "NE", "nj" = "NJ", "ut" = "UT", "vt" = "VT"
+)
+
+# Clean the study_location column and apply the corrections
+cleaned_data <- article_dat %>%
+  filter(!is.na(study_location) & study_location != "Unclear" & study_location != "n/a") %>%
+  separate_rows(study_location, sep = ", ") %>%  # Split multi-state entries
+  mutate(study_location = str_trim(study_location)) %>%
+  mutate(study_location = recode(study_location, !!!state_abbreviation_map)) %>%
+  count(study_location, sort = TRUE) %>%
+  filter(study_location != "USA")  # Remove the "USA" entry if it appears
+
+# View the cleaned and corrected data
+print(cleaned_data)
+
+
+
+
+# Convert state abbreviations to full names for mapping
+state_map <- data.frame(state = state.abb, full_name = state.name) # Abbrev → Full Name
+cleaned_data <- cleaned_data %>%
+  left_join(state_map, by = c("study_location" = "state")) %>%
+  mutate(state = ifelse(is.na(full_name), study_location, full_name)) %>%  # Keep original if no match
+  select(state, n) %>%
+  filter(state %in% state.name)  # Ensure only valid U.S. states
+
+# Create custom categories based on study count ranges
+cleaned_data <- cleaned_data %>%
+  mutate(
+    n = case_when(
+      n <= 2 ~ "0-2",
+      n <= 7 ~ "3-7",
+      n <= 10 ~ "8-10",
+      n <= 30 ~ "15-30",
+      TRUE ~ "30-45"
+    ) %>%
+      factor(levels = c("0-2", "3-7", "8-10", "15-30", "30-45"))  # Ensure it's a factor
+  )
+
+# --- Plot U.S. Map for Research Activity ---
+Researchmap <- plot_usmap(data = cleaned_data, values = "n", regions = "states") +
+  scale_fill_manual(
+    values = c(
+      "0-2" = "white",  # Lightest blue
+      "3-7" = "#e0f3f8",  # Slightly darker
+      "8-10" = "#6bb7d8",  # Medium blue
+      "15-30" = "darkblue",  # Dark blue
+      "30-45" = "#011a4c"   # Darker blue
+    ),
+    name = "Study Count",  # Name for the legend
+    na.value = "grey"  # Remove NA values from the legend
+  ) +
+  labs(
+    title = "Geographic Distribution of Studies on Racial/Ethnic Disparities",
+    subtitle = "Study count by location"
+  ) +
+  theme_void() +
+  theme(
+    plot.title = element_text(face = "bold")  # Make title bold
+  )
+
+# Show the map
+Researchmap
+
+
+
+# Data input for Votes (Manually entered or read from a CSV)
+votes_data <- tribble(
+  ~State, ~Party, ~Votes,
+  "Alaska", "Republican", 184407,
+  "Alaska", "Democrat", 13969,
+  "Alabama", "Republican", 1462616,
+  "Alabama", "Democrat", 772412,
+  "Arkansas", "Republican", 759241,
+  "Arkansas", "Democrat", 396905,
+  "Arizona", "Republican", 1770242,
+  "Arizona", "Democrat", 1582860,
+  "California", "Democrat", 9276179,
+  "California", "Republican", 6081697,
+  "Colorado", "Democrat", 1728159,
+  "Colorado", "Republican", 1377441,
+  "Connecticut", "Democrat", 992053,
+  "Connecticut", "Republican", 736918,
+  "District of Columbia", "Democrat", 294185,
+  "District of Columbia", "Republican", 21076,
+  "Delaware", "Democrat", 289758,
+  "Delaware", "Republican", 214351,
+  "Florida", "Republican", 6110125,
+  "Florida", "Democrat", 4683038,
+  "Georgia", "Republican", 2663117,
+  "Georgia", "Democrat", 2548017,
+  "Hawaii", "Democrat", 313044,
+  "Hawaii", "Republican", 193661,
+  "Iowa", "Republican", 927019,
+  "Iowa", "Democrat", 707278,
+  "Idaho", "Republican", 605246,
+  "Idaho", "Democrat", 274972,
+  "Illinois", "Democrat", 3062863,
+  "Illinois", "Republican", 2449079,
+  "Indiana", "Republican", 1720347,
+  "Indiana", "Democrat", 1163603,
+  "Kansas", "Republican", 758802,
+  "Kansas", "Democrat", 544853,
+  "Kentucky", "Republican", 1337494,
+  "Kentucky", "Democrat", 704043,
+  "Louisiana", "Republican", 1208505,
+  "Louisiana", "Democrat", 76687,
+  "Massachusetts", "Democrat", 2126518,
+  "Massachusetts", "Republican", 1251303,
+  "Maryland", "Democrat", 1902577,
+  "Maryland", "Republican", 1035550,
+  "Maine", "Democrat", 430342,
+  "Maine", "Republican", 376991,
+  "Michigan", "Republican", 2816636,
+  "Michigan", "Democrat", 2736533,
+  "Minnesota", "Democrat", 1656979,
+  "Minnesota", "Republican", 1519032,
+  "Missouri", "Republican", 1751986,
+  "Missouri", "Democrat", 1200599,
+  "Mississippi", "Republican", 747744,
+  "Mississippi", "Democrat", 466668,
+  "Montana", "Republican", 352079,
+  "Montana", "Democrat", 231906,
+  "North Carolina", "Republican", 2898423,
+  "North Carolina", "Democrat", 2715375,
+  "North Dakota", "Republican", 246505,
+  "North Dakota", "Democrat", 112327,
+  "Nebraska", "Republican", 564816,
+  "Nebraska", "Democrat", 369995,
+  "New Hampshire", "Democrat", 418488,
+  "New Hampshire", "Republican", 395523,
+  "New Jersey", "Democrat", 2220713,
+  "New Jersey", "Republican", 1968215,
+  "New Mexico", "Democrat", 478802,
+  "New Mexico", "Republican", 423391,
+  "Nevada", "Republican", 751205,
+  "Nevada", "Democrat", 705197,
+  "New York", "Democrat", 4619195,
+  "New York", "Republican", 3578899,
+  "Ohio", "Republican", 3180116,
+  "Ohio", "Democrat", 2533699,
+  "Oklahoma", "Republican", 1036213,
+  "Oklahoma", "Democrat", 499599,
+  "Oregon", "Democrat", 1240600,
+  "Oregon", "Republican", 91948,
+  "Pennsylvania", "Republican", 3543308,
+  "Pennsylvania", "Democrat", 3423042,
+  "Rhode Island", "Democrat", 28375,
+  "Rhode Island", "Republican", 214291,
+  "South Carolina", "Republican", 1483747,
+  "South Carolina", "Democrat", 1028452,
+  "South Dakota", "Republican", 272081,
+  "South Dakota", "Democrat", 146859,
+  "Tennessee", "Republican", 1966865,
+  "Tennessee", "Democrat", 1056265,
+  "Texas", "Republican", 6393597,
+  "Texas", "Democrat", 4835250,
+  "Utah", "Republican", 883818,
+  "Utah", "Democrat", 562566,
+  "Virginia", "Democrat", 2335395,
+  "Virginia", "Republican", 2075085,
+  "Vermont", "Democrat", 235791,
+  "Vermont", "Republican", 119395,
+  "Washington", "Democrat", 2245849,
+  "Washington", "Republican", 1530923,
+  "Wisconsin", "Republican", 1697626,
+  "Wisconsin", "Democrat", 1668229,
+  "West Virginia", "Republican", 533556,
+  "West Virginia", "Democrat", 214309,
+  "Wyoming", "Republican", 192633,
+  "Wyoming", "Democrat", 69527
+)
+
+# Step 2: Determine the dominant party for each state and if the result was close
+close_threshold <- 0.05  # Define a threshold for close votes (5%)
+party_winner <- votes_data %>%
+  group_by(State) %>%
+  summarize(
+    Republican_Votes = sum(Votes[Party == "Republican"]),
+    Democrat_Votes = sum(Votes[Party == "Democrat"]),
+    Total_Votes = sum(Votes),
+    Dominant_Party = ifelse(Republican_Votes > Democrat_Votes, "Republican", "Democrat"),
+    Vote_Difference = abs(Republican_Votes - Democrat_Votes) / Total_Votes,
+    Close = Vote_Difference < close_threshold
+  ) %>%
+  mutate(Dominant_Party = ifelse(Close, "Close", Dominant_Party))
+
+# Step 3: Merge the data with state information for the map (use full state names)
+us_map_data <- us_map(regions = "states") %>%
+  left_join(party_winner, by = c("full" = "State"))
+
+# Step 4: Plot the U.S. map
+usmapvotes <- plot_usmap(data = us_map_data, values = "Dominant_Party", regions = "states") + 
+  scale_fill_manual(
+    values = c("Republican" = "red", "Democrat" = "blue", "Close" = "grey"), 
+    name = "Party"
+  ) + 
+  labs(
+    title = "Dominant Party Presidential Elections US 2024", 
+    subtitle = "Threshold for close votes is a 5% difference"
+  ) + 
+  theme_void() + 
+  theme(
+    plot.title = element_text(face = "bold")  # Make title bold
+  )
+
+# Show the map
+usmapvotes
+
+
+
+# Adjust the theme for a modern design and light beige background
+modern_theme <- theme_minimal(base_size = 14) +
+  theme(
+    plot.background = element_rect(fill = "#FAFDF3", color = NA), # Light beige background
+    panel.background = element_rect(fill = "#FAFDF3", color = NA),
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(size = 14, hjust = 0.5),
+    plot.caption = element_text(size = 12, color = "black", hjust = 0.5, vjust = -1),
+    panel.grid.major = element_line(color = "gray80"),
+    panel.grid.minor = element_line(color = "gray90"),
+    axis.text = element_text(color = "black"),
+    axis.title = element_text(color = "black")
+  )
+
+# Combine the two maps side by side
+combined_map <- usmapvotes + Researchmap + plot_layout(ncol = 2) +
+  plot_annotation(
+    title = "Comparative Visualization of U.S. Political and Research Data",
+    subtitle = "Do Liberal States Conduct More Research on Racial/Ethnic Disparities in Reproductive Medicine in the US?",
+    caption = "Source: Lewis et al. (2025) & BBC Website | @irgendeine_lea | #TidyTuesday 2025 W8",
+    theme = modern_theme
+  )
+
+# Display the combined map
+print(combined_map)
